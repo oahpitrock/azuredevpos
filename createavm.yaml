@@ -1,0 +1,79 @@
+trigger:
+- main
+
+variables:
+  vmName: 'osmar-vm'
+  resourceGroupName: 'Test_Osmar'
+  location: 'eastus'
+  adminUsername: 'azureadmin'
+  adminPassword: '220912Caramelos1.'
+  vmSize: 'Standard_D2s_v3'
+  systemDiskName: 'Test-Osmar-Disk'
+  dataDiskName: 'Test-Osmar-dataDisk'
+  lockName: 'vm-delete-lock'
+
+stages:
+- stage: Provision_VM
+  displayName: "Provision Windows VM"
+  jobs:
+  - job: CreateVM
+    displayName: "Create Windows Virtual Machine"
+    pool:
+      vmImage: 'windows-latest'
+
+    steps:
+    - task: AzureCLI@2
+      displayName: "Create Resource Group"
+      inputs:
+        azureSubscription: 'Arroyo_Challenge-Test_Osmar'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          az group create --name $(resourceGroupName) --location $(location)
+
+    - task: AzureCLI@2
+      displayName: "Create Windows VM with System Disk"
+      inputs:
+        azureSubscription: 'Arroyo_Challenge-Test_Osmar'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          az vm create \
+            --resource-group $(resourceGroupName) \
+            --name $(vmName) \
+            --image Win2022Datacenter \
+            --size $(vmSize) \
+            --admin-username $(adminUsername) \
+            --admin-password $(adminPassword) \
+            --os-disk-name $(systemDiskName)
+
+    - task: AzureCLI@2
+      displayName: "Install Applications with Chocolatey"
+      inputs:
+        azureSubscription: 'Arroyo_Challenge-Test_Osmar'
+        scriptType: 'powershell'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          # Instalar Chocolatey
+          Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+
+          # Instalar Office, Node.js, Java, Visual Studio Code y Git
+          choco install microsoft-office-deployment --yes
+          choco install nodejs --yes
+          choco install jdk8 --yes
+          choco install vscode --yes
+          choco install git --yes
+
+    - task: AzureCLI@2
+      displayName: "Validate Environment Setup"
+      inputs:
+        azureSubscription: 'Arroyo_Challenge-Test_Osmar'
+        scriptType: 'powershell'
+        scriptLocation: 'inlineScript'
+        inlineScript: | 
+          echo "Variables de entorno del sistema:"
+          powershell.exe -Command "Get-ChildItem Env: | Sort-Object Name"
+        shell: powershell
+          
+
+
